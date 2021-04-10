@@ -14,6 +14,9 @@ It uses an esp8266 development board, DHT22 temperature/humidity sensor, RCWL-05
 The smoke detector I have used as a "Lifesaver Micro model i9040EV" which I found will work on a 5volt supply and then there is a test point on the circuit board which provides 5v when triggered which can go directly to a gpio pin on the esp8266.  I then cut the wire to the sounder as I want it to be silent and also it will beep periodically to tell you the battery voltage is low.
 Note: Of course modifying a smoke alarm like this should not be used as a primary smoke alarm.
 
+You will need to enter your email settings in to email.h (if using gmail you need to enable pop access and reduce security level)
+It uses WifiManager for wifi credentials so you will need to connect to it via its own ssid first to enter your wifi password
+
 
 <br>You can change settings via the below browser links
 <br>  Enable/disable emails toggle with        http://x.x.x.x/?email
