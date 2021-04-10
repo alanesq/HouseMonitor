@@ -18,16 +18,16 @@ Note: Of course modifying a smoke alarm like this should not be used as a primar
 
 
 You can change settings via the below browser links
- *                           Enable/disable emails toggle with        http://x.x.x.x:6969/pine?email
- *                           Enable/disable sms toggle with           http://x.x.x.x:6969/pine?sms
- *                           Change 'first movement in' setting with  http://x.x.x.x:6969/pine?first=x
- *                           Change 'no movement in' setting with     http://x.x.x.x:6969/pine?none=x
- *                           Change movement detection timeframewith  http://x.x.x.x:6969/pine?timeframe=x
- *                           Change radar trigger level               http://x.x.x.x:6969/pine?trigger=x
- *                           Create test graph data with              http://x.x.x.x:6969/pine?testdata
- *                           Clear graph data with                    http://x.x.x.x:6969/pine?cleardata
- *                           Clear logs                               http://x.x.x.x:6969/pine?clearlog
- *                           Change high temp warning level           http://x.x.x.x:6969/pine?hightemp
- *                           Change low temp warning level            http://x.x.x.x:6969/pine?lowtemp
- *                           Load default settings                    http://x.x.x.x:6969/pine?defaults
+  Enable/disable emails toggle with        http://x.x.x.x:6969/pine?email
+  Enable/disable sms toggle with           http://x.x.x.x:6969/pine?sms
+  Change 'first movement in' setting with  http://x.x.x.x:6969/pine?first=x
+  Change 'no movement in' setting with     http://x.x.x.x:6969/pine?none=x
+  Change movement detection timeframewith  http://x.x.x.x:6969/pine?timeframe=x
+  Change radar trigger level               http://x.x.x.x:6969/pine?trigger=x
+  Create test graph data with              http://x.x.x.x:6969/pine?testdata
+  Clear graph data with                    http://x.x.x.x:6969/pine?cleardata
+  Clear logs                               http://x.x.x.x:6969/pine?clearlog
+  Change high temp warning level           http://x.x.x.x:6969/pine?hightemp
+  Change low temp warning level            http://x.x.x.x:6969/pine?lowtemp
+  Load default settings                    http://x.x.x.x:6969/pine?defaults
 
