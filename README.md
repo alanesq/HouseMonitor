@@ -1,6 +1,10 @@
 <h1>House Monitor for use with the Arduino IDE</h1>
 <p align="center"><img src="/images/esp32cam.jpeg" width="80%"/></p>
 
+<table><tr>
+  <td><img src="/screengrab.png" /></td>
+</tr></table>   
+
 This is a sketch I created to keep an eye on a volnerable family member who lives alone.  
 It has a temperature/humidity sensor, radar motion sensor and smoke alarm built in and monitors these and sends me an email or text message if anything out of the ordinary occurs.
 e.g. if no one has been detected moving around for several hours or if the temperature goes above or below set values etc.
