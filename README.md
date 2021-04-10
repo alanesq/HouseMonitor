@@ -16,7 +16,6 @@ The smoke detector I have used as a "Lifesaver Micro model i9040EV" which I foun
 
 You will need to enter your email settings in to email.h (if using gmail you need to enable pop access and reduce security level)
 <br>It uses WifiManager for wifi credentials so you will need to connect to it via its own ssid first to enter your wifi password
-<br> see:   https://randomnerdtutorials.com/installing-the-esp32-board-in-arduino-ide-windows-instructions/
 
 
 <br>You can change settings via the below browser links
