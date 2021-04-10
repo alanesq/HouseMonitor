@@ -2,7 +2,7 @@
 <p align="center"><img src="/images/esp32cam.jpeg" width="80%"/></p>
 
 <table><tr>
-  <td><img src="/screengrab.png" /></td>
+  <td><img src="/screengrab.png"></td>
 </tr></table>   
 
 This is a sketch I created to keep an eye on a vulnerable family member who lives alone.  
