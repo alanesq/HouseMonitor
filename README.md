@@ -1,5 +1,4 @@
 <h1>House Monitor for use with the Arduino IDE</h1>
-<p align="center"><img src="/images/esp32cam.jpeg" width="80%"/></p>
 
 <table><tr>
   <td><img src="/screengrab.png"></td>
