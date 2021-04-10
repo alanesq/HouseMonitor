@@ -83,14 +83,14 @@
   #define ENABLE_OTA 1                                   // Enable Over The Air updates (OTA)
   const String OTAPassword = "password";                 // Password to enable OTA service (supplied as - http://<ip address>?pwd=xxxx )
 
-  const char HomeLink[] = "/pine";                       // Where home button on web pages links to (usually "/")
+  const char HomeLink[] = "/";                           // Where home button on web pages links to (usually "/")
 
   const char datarefresh[] = "4000";                     // Refresh rate of the updating data on web page (1000 = 1 second)
   const char JavaRefreshTime[] = "500";                  // time delay when loading url in web pages (Javascript)
   
   const byte LogNumber = 75;                             // number of entries to store in the system log
 
-  const int ServerPort = 6969;                           // HTTP port to use
+  const int ServerPort = 80;                             // HTTP port to use
 
   const byte led = D0;                                   // indicator LED pin - D0/D4 on esp8266 nodemcu, 3 on esp8266-01, 2 on ESP32
 
