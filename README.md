@@ -22,7 +22,6 @@ You will need to enter your email settings in to email.h (if using gmail you nee
 <br>  Enable/disable sms toggle with           http://x.x.x.x/?sms
 <br>  Change 'first movement in' setting with  http://x.x.x.x/?first=x
 <br>  Change 'no movement in' setting with     http://x.x.x.x/?none=x
-<br>  Change movement detection timeframewith  http://x.x.x.x/?timeframe=x
 <br>  Change radar trigger level               http://x.x.x.x/?trigger=x
 <br>  Create test graph data with              http://x.x.x.x/?testdata
 <br>  Clear graph data with                    http://x.x.x.x/?cleardata
