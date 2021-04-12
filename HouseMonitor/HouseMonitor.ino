@@ -2,9 +2,9 @@
  *
  *                             HouseMonitor - monitor house and report any unusual events
  * 
- *                                     https://github.com/alanesq/HouseMonitor*                              
+ *                                     https://github.com/alanesq/HouseMonitor
+ *                              
  * 
- *
  *                           Included files: email.h, Mstandard.h, ota.h, gsm.h & wifi.h 
  *             
  *                           Access via: http://x.x.x.x:6969/pine
@@ -16,7 +16,6 @@
  *                           Enable/disable sms toggle with           http://x.x.x.x:6969/pine?sms
  *                           Change 'first movement in' setting with  http://x.x.x.x:6969/pine?first=x
  *                           Change 'no movement in' setting with     http://x.x.x.x:6969/pine?none=x
- *                           Change movement detection timeframewith  http://x.x.x.x:6969/pine?timeframe=x
  *                           Change radar trigger level               http://x.x.x.x:6969/pine?trigger=x
  *                           Create test graph data with              http://x.x.x.x:6969/pine?testdata
  *                           Clear graph data with                    http://x.x.x.x:6969/pine?cleardata
@@ -56,7 +55,7 @@
 
   const char* stitle = "HouseMonitor";                   // title of this sketch
 
-  const char* sversion = "10Apr21";                      // version of this sketch
+  const char* sversion = "12Apr21";                      // version of this sketch
 
   const bool serialDebug = 0;                            // provide debug info on serial port
 
@@ -76,10 +75,6 @@
 
   const int movementSensorPin = D1;                      // radar movement sensor
 
-  #define ENABLE_OLED 0                                  // Enable OLED display  (not used)
-
-  #define ENABLE_GSM 0                                   // Enable GSM board support  (not used)
-
   #define ENABLE_EMAIL 1                                 // Enable E-mail  
   
   #define ENABLE_OTA 1                                   // Enable Over The Air updates (OTA)
@@ -92,7 +87,9 @@
   
   const byte LogNumber = 75;                             // number of entries to store in the system log
 
-  const int ServerPort = 80;                             // HTTP port to use
+  const int ServerPort = 6969;                           // HTTP port to use
+
+  const int lastWebAccessDelay = 4500;                   // Pause radar sensing for this long when wifi is accessed to stop false triggers (ms)
 
   const byte led = D0;                                   // indicator LED pin - D0/D4 on esp8266 nodemcu, 3 on esp8266-01, 2 on ESP32
 
@@ -106,21 +103,16 @@
   
 
 // ---------------------------------------------------------------
+
+
+#define ENABLE_OLED 0                                  // Enable OLED display  (not used)
+
+#define ENABLE_GSM 0                                   // Enable GSM board support  (not used)
   
-
-  // Debugging tool
-  // use with:    TRACE();    or    DUMP(someValue);
-  
-  // #include <ArduinoTrace.h>
-  
-
-// ---------------------------------------------------------------
-
-
 // flags / variables specific to HouseMonitor sketch
 bool smokeAlarmTriggered = 0;           // goes high when the smoke alarm has triggered
 bool tempWarningTriggered = 0;          // goes high when a low/high temperature warning has been issued
-bool noMovementWarningTriggered = 0;    // goes high when a no recent movement detetced warning has triggered
+bool noMovementWarningTriggered = 0;    // goes high when a no recent movement deteted warning has triggered
 bool enableSMS = 0;                     // flag to also send sms when an email is sent
 float lowestTemp = 0;                   // lowest recorded temperature
 float highestTemp = 0;                  // highest recorded temperature
@@ -128,7 +120,6 @@ float lowestHumidity = 0;               // lowest recorded humidity
 float highestHumidity = 0;              // highest recorded humidity
 String lastMovementDetection = "n/a";   // last time movement was detected
 bool lastMovementPinState = 0;          // previous state of movement detector gpio pin
-int movementTriggerCount = 0;           // count number of triggers since last event
 float temperatures[24];                 // log previous 24hrs temperature readings (displayed as a graph)
 byte logCounter=0;                      // current position in temperature log
 uint32_t tempLogTimer = millis();       // timer for temperature log
@@ -136,11 +127,9 @@ String lastLogUpdateTime = "n/a";       // last time log was updated
 int movements[24];                      // log previous 24hrs movements detected per hour (displayed as a graph)
 int movementCounts = 0;                 // movement detections counter (for hourly log)
 bool enableEmail = 1;                   // enable/disable sending emails
-uint16_t radarTriggerTriplevel;         // Time radar trigger over set timeframe required to count as motion detected
+uint16_t radarTriggerTriplevel;         // Time radar needs to be triggered to count as motion detected
 uint16_t motionFirstTrigger;            // if first motion detected in this many hours send an email
 uint16_t noMovementTriggerTime;         // if no movement detected for this many hours trigger a warning 
-uint16_t movementDetectionTimeframe;    // time frame for movement detections (seconds)
-uint16_t radarTriggerCount = 0;         // time radar has been trigger during previous timeframe
 float lowTempWarningLevel = 10.0;       // Temperature  below which triggers a warning (C)
 float highTempWarningLevel = 30.0;      // Temperature  above which triggers a warning (C)
 bool overideNoSMS = 0;                  // used to send sms for smoke alarm even if sms flag is turned off
@@ -337,10 +326,10 @@ void loop(void){
           }
         }
       }
-      
+
 
     // check radar pin status periodically (don't check for first 30 seconds after boot or if wifi has been used recently)
-      if ( (unsigned long)(millis() - MOTIONtimer) >= movementCheckTime && millis() > 30000 && (unsigned long)(millis() - lastWebAccess) >= 3000 ) { 
+      if ( (unsigned long)(millis() - MOTIONtimer) >= movementCheckTime && millis() > 30000 && (unsigned long)(millis() - lastWebAccess) >= lastWebAccessDelay ) { 
         MOTIONtimer = millis();                                // reset timer 
         bool currentPinState = digitalRead(movementSensorPin); // read current radar input pin state
 
@@ -352,34 +341,25 @@ void loop(void){
                 if (digitalRead(movementSensorPin) == 1) {     // debounce
                   lastMovementPinState = 1;                    // flag pin is now high
                   MOTIONonTimer = millis();                    // log time motion sensor triggered
-                  // log_system_message("Radar motion detector has triggered (" + String(movementTriggerCount) + ")" );           
-                  // radarTriggered();                            // run radar has triggered procedure
                 }  
             } 
   
         } else {                                // if previous state of radar pin was high
-          
+                 
           // if state has changed from high to low
             if (currentPinState == 0) {     
                 delay(100);
                 if (digitalRead(movementSensorPin) == 0) {     // debounce input
                   lastMovementPinState = 0;                    // flag pin is now low
-                  // log how long the pin was high for
+                  // act depending how long the pin was high for (min. possible is 2 seconds)
                     uint32_t onTime = (unsigned long)((millis() - MOTIONonTimer));
-                    radarTriggerCount+=onTime;     // add to running total
-                    log_system_message("Radar triggered for " + String( (float)(onTime / 1000.0), 1 ) + " seconds");   
+                    if ( onTime >= (radarTriggerTriplevel * 1000) ) radarTriggered(onTime);   // movement detected
+                    else if (onTime > 1000) log_system_message("Radar triggered for " + String( (float)(onTime / 1000.0), 1 ) + " seconds");   
                 }
-            }           
+            }                         
         }
       }   
-
-    // Check running total of radar motion detections
-      if ((unsigned long)(millis() - movementDetectionTimer ) >= (movementDetectionTimeframe * 1000) ) { 
-        movementDetectionTimer = millis();            // reset timer
-        if (radarTriggerCount >= (radarTriggerTriplevel * 1000)) radarTriggered(radarTriggerCount);     // run radar has triggered procedure
-        radarTriggerCount = 0;                        // reset counter
-      }
-
+     
 
     // check if no movement has been detected for a long time
       if ((unsigned long)(millis() - MOTIONdetectedEvent) > (noMovementTriggerTime * 1000 * 60 * 60) ) {
@@ -388,7 +368,13 @@ void loop(void){
 
   
     // check if an email is flagged to be sent
-      if (!enableEmail || millis() < 10000) emailToSend = 0;        // if emails disabled or recently booted then cancel any scheduled send
+      // if emails disabled or recently booted then cancel any scheduled send
+        if (!enableEmail || millis() < 30000) {
+          if (emailToSend) {
+            emailToSend = 0;     
+            log_system_message("Email send cancelled");
+          }   
+        }
       if (emailToSend && emailAttemptCounter < MaxEmailAttempts) {
         if (lastEmailAttempt == 0 || (unsigned long)(millis() - lastEmailAttempt) >= (EmailAttemptTime * 1000)) {    // if long enough since last try
           // try to send the email  
@@ -419,7 +405,7 @@ void loop(void){
     // Periodically change the LED status to indicate all well
         if ((unsigned long)(millis() - LEDtimer) >= ledBlinkRate ) {  
             bool allOK = 1;                                   // if all checks leave this as 1 then the all ok LED is flashed
-            WIFIcheck();                                  
+            WIFIcheck();                                      // check wifi connection is ok                              
             if (!wifiok) allOK = 0;                           // if wifi is connected ok
             if (timeStatus() != timeSet) allOK = 0;           // if NTP time is updating ok
             #if ENABLE_GSM
@@ -465,8 +451,7 @@ void handleRoot() {
         enableEmail = 0;
         noMovementTriggerTime = 12;
         motionFirstTrigger = 6;
-        movementDetectionTimeframe = 60;
-        radarTriggerTriplevel = 15;
+        radarTriggerTriplevel = 10;
         enableSMS = 0;
         highTempWarningLevel = 30.0;
         lowTempWarningLevel = 10.0;
@@ -504,17 +489,6 @@ void handleRoot() {
           log_system_message("highTempWarningLevel changed to " + String(Tval) + " via web page (" + clientIP + ")"); 
         }
       }      
-      
-    // if change to movementDetectionTimeframe requested
-      if (server.hasArg("timeframe")) {
-        String Tvalue = server.arg("timeframe");   // read value
-        int Tval = Tvalue.toInt();
-        if (Tval > 10 && Tval < 2000) {
-          movementDetectionTimeframe = Tval;
-          storeEEPROM();      // store changed setting in eeprom    
-          log_system_message("movementDetectionTimeframe changed to " + String(Tval) + " via web page (" + clientIP + ")"); 
-        }
-      }
 
     // if change to motionFirstTrigger requested
       if (server.hasArg("first")) {
@@ -543,7 +517,7 @@ void handleRoot() {
       if (server.hasArg("trigger")) {
         String Tvalue = server.arg("trigger");   // read value
         int Tval = Tvalue.toInt();
-        if (Tval > 0 && Tval <= movementDetectionTimeframe) {
+        if (Tval > 0 && Tval <= 600) {
           radarTriggerTriplevel = Tval;
           storeEEPROM();      // store changed setting in eeprom    
           log_system_message("radarTriggerTriplevel changed to " + String(Tval) + " via web page (" + clientIP + ")"); 
@@ -604,7 +578,6 @@ void handleRoot() {
             tempWarningTriggered = 0;
             lastMovementDetection = "n/a";
             emailToSend = 0;
-            movementTriggerCount = 0;
             MOTIONdetected = millis();
             MOTIONdetectedEvent = millis();     
           // reset max/min values
@@ -621,7 +594,7 @@ void handleRoot() {
     // client.println("<P>");                                               // start of section
 
     // insert an iframe containing the changing data (updates every few seconds using javascript)
-      client.println("<br><iframe id='dataframe' height=275 width=600 frameborder='0'></iframe>");
+      client.println("<br><iframe id='dataframe' height=300 width=640 frameborder='0'></iframe>");
       // javascript to refresh data display
         client.println("<script>");
         client.printf("setTimeout(function() {document.getElementById('dataframe').src='/data';}, %s );\n", JavaRefreshTime);
@@ -630,7 +603,7 @@ void handleRoot() {
      
     // misc info
       client.println("<br>Temperature warning trigger settings: Low=" + String(lowTempWarningLevel, 0) + "C, High=" + String(highTempWarningLevel, 0) + "C");
-      client.println("<br>Movement detected when radar is triggered for more than " + String(radarTriggerTriplevel) + " seconds in a " + String(movementDetectionTimeframe) + " second window");
+      client.println("<br>Movement detected when radar is triggered for more than " + String(radarTriggerTriplevel) + " seconds");
       client.println("<br>Notification sent at first movement detected in over " + String(motionFirstTrigger) + " hours");
       client.println("<br>Warning sent if no movement detected for " + String(noMovementTriggerTime) + " hours");
       
@@ -727,21 +700,21 @@ void handleData(){
     if (smokeDetection) {
       if (!smokeAlarmTriggered) client.print("<br>No smoke has been detected");
       else client.printf("<br>%sSmoke has been detected%s", colRed, colEnd);
-      if (digitalRead(smokeAlarmPin)) client.printf(" - %smoke detector is currently triggered%s", colRed, colEnd);
+      if (digitalRead(smokeAlarmPin)) client.printf(" - %sSmoke detector is currently triggered%s", colRed, colEnd);
     }
     
   // movement detector
     client.print("<br>Last movement detected: " + lastMovementDetection);
     if (digitalRead(movementSensorPin)) {
-      client.printf(" - %sMovement sensor is triggered%s", colRed, colEnd);
+      client.printf(" - %sMovement sensor triggered%s", colRed, colEnd);
     }
     if (noMovementWarningTriggered) {
-      client.printf("- %sA no recent movement warning has triggered%s", colRed, colEnd);
+      client.printf("- %sA no recent movement warning triggered%s", colRed, colEnd);
     }
 
   // Temperature
     client.print("<br><br>Current temperature: " + printVal(readTemp(0), 0));
-    if (tempWarningTriggered) client.printf(" - %sA temperature warning has triggered%s", colRed, colEnd);
+    if (tempWarningTriggered) client.printf(" - %sA temperature warning triggered%s", colRed, colEnd);
     client.print("<br>&ensp;Lowest recorded temperature: " + printVal(lowestTemp, 0) + ", Highest: " + printVal(highestTemp, 0));
 
   // Humidity    
@@ -758,8 +731,11 @@ void handleData(){
         client.print("Warnings will trigger an E-mail (only smoke detection will trigger an SMS)");
       }
     }
+    
+  // Most recent log entry
+    client.println("<br>Log: " + system_message[system_message_pointer]);
       
-  // Misc. status info. line   ('&ensp;' =  add a space)
+  // Misc. status line   (Note: '&ensp;' =  add a space)
     client.print("<br><br>");
     if (OTAEnabled) client.printf("%s(OTA ENABLED)%s&ensp;", colRed, colEnd);  
     if (emailToSend) client.printf("%s(An E-mail is being sent)%s&ensp;", colRed, colEnd);
@@ -835,28 +811,27 @@ void radarTriggered(uint16_t totalOnTime) {
 
   MOTIONdetected = millis();                 // log time of last detection
   
-  if ((unsigned long)(millis() - MOTIONdetectedEvent) < (movementDetectionTimeframe * 1000) ) return;     // too soon since last trigger event
-    
-    log_system_message("MOVEMENT DETECTED! (" + String( (float)(totalOnTime / 1000.0), 1 ) + " seconds)" );      
+  // if ((unsigned long)(millis() - MOTIONdetectedEvent) < (3 * 1000) ) return;     // too soon since last trigger event
+
+  String dtime = String( (float)(totalOnTime / 1000.0), 1 ) + " seconds";     // time radar was triggered as a string
+  log_system_message("MOVEMENT WAS DETECTED! (" + dtime + ")" );  
+  lastMovementDetection = currentTime() + "(" + dtime + ")";                  // store last time of detection as a string    
+  MOTIONdetectedEvent = millis();                                             // log time of last detection 
+  movementCounts++;                                                           // increment counter for hourly logs         
   
-    movementCounts++;        // increment counter for hourly logs         
-    
-    // if this is the first detection for several hours send an email
-      if ( ((unsigned long)(millis() - MOTIONdetectedEvent) > (1000 * 60 * 60 * motionFirstTrigger)) ) {
-        _recepient[0]=0; _message[0]=0; _subject[0]=0;                  // clear any existing text
-        strcat(_recepient, _emailReceiver);                             // email address to send it to
-        strcat(_subject,stitle);
-        strcat(_subject,": Movement detected");
-        strcat(_message,"First movement detected (in a long time)");
-        emailToSend=1; lastEmailAttempt=0; emailAttemptCounter=0;       // set flags that there is an email ready to be sent
-      }
-  
-    MOTIONdetectedEvent = millis();            // log time of last detection  
-    lastMovementDetection = currentTime();     // store last time of detection as a string
-    noMovementWarningTriggered = 0;            // clear no recent movement warning flag if it is set
+  // if this is the first detection for several hours send an email
+    if ( ((unsigned long)(millis() - MOTIONdetectedEvent) > (1000 * 60 * 60 * motionFirstTrigger)) ) {
+      _recepient[0]=0; _message[0]=0; _subject[0]=0;                  // clear any existing text
+      strcat(_recepient, _emailReceiver);                             // email address to send it to
+      strcat(_subject,stitle);
+      strcat(_subject,": Movement detected");
+      strcat(_message,"First movement detected (in a long time)");
+      emailToSend=1; lastEmailAttempt=0; emailAttemptCounter=0;       // set flags that there is an email ready to be sent
+    }
+ 
+  noMovementWarningTriggered = 0;            // clear no recent movement warning flag if it is set
     
 }   // movementDetected
-
 
 
 // ----------------------------------------------------------------
@@ -971,13 +946,13 @@ float readTemp(bool which) {
 // ----------------------------------------------------------------
 //                 -store variables in to eeprom
 // ----------------------------------------------------------------
+// Note: if over 32 bytes increase value in SETUP section
 
 bool storeEEPROM() {
   
   EEPROM.put(0, enableEmail);                       // 1 byte
   EEPROM.put(2, noMovementTriggerTime);             // 2 bytes
   EEPROM.put(4, motionFirstTrigger);                // 2 bytes
-  EEPROM.put(6, movementDetectionTimeframe);        // 2 bytes
   EEPROM.put(8, radarTriggerTriplevel);             // 2 bytes
   EEPROM.put(10, enableSMS);                        // 1 byte
   EEPROM.put(11, highTempWarningLevel);             // 4 bytes
@@ -1001,7 +976,6 @@ void readEEPROM() {
   EEPROM.get(0, enableEmail);                       // 1 byte
   EEPROM.get(2, noMovementTriggerTime);             // 2 bytes
   EEPROM.get(4, motionFirstTrigger);                // 2 bytes
-  EEPROM.get(6, movementDetectionTimeframe);        // 2 bytes
   EEPROM.get(8, radarTriggerTriplevel);             // 2 bytes
   EEPROM.get(10, enableSMS);                        // 1 byte
   EEPROM.get(11, highTempWarningLevel);             // 4 bytes
@@ -1010,8 +984,7 @@ void readEEPROM() {
   // check values are reasonable
     if (noMovementTriggerTime <= 0 || noMovementTriggerTime > 168) noMovementTriggerTime = 12;
     if (motionFirstTrigger <= 0 || motionFirstTrigger > 168) motionFirstTrigger = 5;
-    if (movementDetectionTimeframe < 10 || movementDetectionTimeframe > 2000) movementDetectionTimeframe = 120;
-    if (radarTriggerTriplevel <= 0 || radarTriggerTriplevel > movementDetectionTimeframe) radarTriggerTriplevel = 15;
+    if (radarTriggerTriplevel <= 0 || radarTriggerTriplevel > 600) radarTriggerTriplevel = 10;
     if (highTempWarningLevel < 20.0 || highTempWarningLevel > 40.0) highTempWarningLevel = 30.0;
     if (lowTempWarningLevel < 0.0 || lowTempWarningLevel > 20.0) lowTempWarningLevel = 10;
  
