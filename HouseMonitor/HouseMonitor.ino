@@ -8,9 +8,9 @@
  *                           Included files: email.h, Mstandard.h, ota.h, gsm.h & wifi.h 
  *             
  *                           Access via: http://x.x.x.x:6969/pine
- *                           Uses a smoke detector on pin D1 (High = triggering)
+ *                           Uses a smoke detector on pin D5 (High = triggering)
  *                           DHT22 temperature/humidity sensor on D2
- *                           RCWL-0516 Radar movement sensor on D5 (High = triggering)
+ *                           RCWL-0516 Radar movement sensor on D1 (High = triggering)
  *                           
  *                           Enable/disable emails toggle with        http://x.x.x.x:6969/pine?email
  *                           Enable/disable sms toggle with           http://x.x.x.x:6969/pine?sms
