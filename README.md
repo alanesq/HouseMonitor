@@ -5,7 +5,7 @@
   <td><img src="/screengrab-log.png"></td>
 </tr></table>   
 
-This is a sketch I created to keep an eye on a vulnerable family member who lives alone.  
+This is a sketch I created to keep an eye on a vulnerable family member who lives alone although it may also be useful just for keeping an eye on an empty property etc..  
 It has a temperature/humidity sensor, radar motion sensor and smoke alarm built in.  It monitors these and sends me an email or text message if anything out of the ordinary occurs.
 <br>e.g. if no one has been detected moving around for several hours or if the temperature goes above or below set values etc.
 <br>I am posting it here in case it is of any interest/help to anyone else.
