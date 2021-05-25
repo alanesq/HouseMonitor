@@ -2,7 +2,8 @@
  *
  *      Standard procedures - 10Apr21
  *      
- *      header is modified for DadsHouseMonitor to prevent wifi triggering radar
+ *      header is modified for DadsHouseMonitor to prevent wifi triggering radar 
+ *      (may not be needed if radar not so close to esp8266?)
  *      
  *      part of the BasicWebserver sketch - https://github.com/alanesq/BasicWebserver
  *      
@@ -44,9 +45,12 @@
 
 String decodeIP(String IPadrs) {
   
-    if (IPadrs == "192.168.1.111") IPadrs = "main pc";
-    else if (IPadrs == "192.168.1.112") IPadrs = "phone";
-
+    if (IPadrs == "192.168.1.176") IPadrs = "HA server";
+    else if (IPadrs == "192.168.1.103") IPadrs = "Parlour laptop";
+    else if (IPadrs == "192.168.1.101") IPadrs = "Bedroom laptop";
+    else if (IPadrs == "192.168.1.169") IPadrs = "Linda's laptop";
+    else if (IPadrs == "192.168.1.170") IPadrs = "Shed 1 laptop";
+    else if (IPadrs == "192.168.1.143") IPadrs = "Shed 2 laptop";
 
     // log last IP client connected
       if (IPadrs != lastClient) {

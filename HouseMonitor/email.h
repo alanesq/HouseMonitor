@@ -45,31 +45,24 @@
 //               s e t t i n g s 
 
 
-// ------------------------------ enter your email details below ---------------------------
-
-
-  #define _emailReceiver "<address to send email to>"         // address to send emails
+  #define _emailReceiver "<email address here>"             // address to send emails
   
-  #define _smsReceiver "<email to sms gateway address>"         // address to send text messages
+  #define _smsReceiver "<email address here>"               // address to send text messages (email to sms gateway)
   
-  #define _mailUser "<address to send emails from>"                   // address to send from
+  #define _mailUser "<email address here>"                  // address to send from
   
-  #define _mailPassword "<email password>"                      // email password
+  #define _mailPassword "<password>"                        // email password
 
-  #define _SMTP "<email smtp server address>"                              // smtp server address
+  #define _SMTP "<smtp address>"                            // smtp server address
 
   #define _SMTP_Port 587                                    // port to use (gmail: Port for SSL: 465, Port for TLS/STARTTLS: 587)
 
   // #define _SenderName "ShedStation1"                        // name of sender (no spaces)
 
-  #define _UserDomain "gmail.com"                     // user domain to report in email
+  #define _UserDomain "gmail.com"                           // user domain to report in email
 
   const int maxMessageLength = 500;                         // maximum length of email message
   const int maxSubjectLength = 150;                         // maximum length of email subject
-
-  
-// ------------------------------ enter your email details above ---------------------------  
-
 
 
 //  ----------------------------------------------------------------------------------------
