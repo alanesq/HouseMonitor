@@ -12,7 +12,6 @@
  *                           RCWL-0516 Radar movement sensor on D1 (High = triggering)
  *                           
  *                           Enable/disable emails toggle with        http://x.x.x.x:6969/pine?email
- *                           Enable/disable sms toggle with           http://x.x.x.x:6969/pine?sms
  *                           Change 'first movement in' setting with  http://x.x.x.x:6969/pine?first=x
  *                           Change 'no movement in' setting with     http://x.x.x.x:6969/pine?none=x
  *                           Change radar trigger level               http://x.x.x.x:6969/pine?trigger=x
@@ -55,9 +54,9 @@
 
   const char* stitle = "HouseMonitor";                   // title of this sketch
 
-  const char* sversion = "25May21";                      // version of this sketch
+  const char* sversion = "28May21";                      // version of this sketch
 
-  const bool serialDebug = 1;                            // provide debug info on serial port
+  const bool serialDebug = 0;                            // provide debug info on serial port
 
   const int EmailAttemptTime = 60;                       // how often to re-attempt failed email sends (seconds)
   const int MaxEmailAttempts = 6;                        // maximum email send attempts   
@@ -89,7 +88,7 @@
   
   const byte LogNumber = 100;                            // number of entries to store in the system log
 
-  const int ServerPort = 80;                             // HTTP port to use
+  const int ServerPort = 80;                           // HTTP port to use
 
   const int lastWebAccessDelay = 4500;                   // Pause radar sensing for this long when wifi is accessed to stop false triggers (ms)
 
@@ -116,7 +115,6 @@ bool showAllRadarTriggers = 0;          // if set then all radar triggers will s
 bool smokeAlarmTriggered = 0;           // goes high when the smoke alarm has triggered
 bool tempWarningTriggered = 0;          // goes high when a low/high temperature warning has been issued
 bool noMovementWarningTriggered = 0;    // goes high when a no recent movement deteted warning has triggered
-bool enableSMS = 0;                     // flag to also send sms when an email is sent
 float lowestTemp = 0;                   // lowest recorded temperature
 float highestTemp = 0;                  // highest recorded temperature
 float lowestHumidity = 0;               // lowest recorded humidity
@@ -129,13 +127,14 @@ uint32_t tempLogTimer = millis();       // timer for temperature log
 String lastLogUpdateTime = "n/a";       // last time log was updated
 int movements[24];                      // log previous 24hrs movements detected per hour (displayed as a graph)
 int movementCounts = 0;                 // movement detections counter (for hourly log)
-bool enableEmail = 1;                   // enable/disable sending emails
+byte emailWarningMode = 0;              // email/sms sending upon a warning
+                                        //    0=no emails/sms sending, 1=send emails, 2=send emails and also sms if it is dark, 3=send both email and sms
 uint16_t radarTriggerTriplevel;         // Time radar needs to be triggered to count as motion detected
 uint16_t motionFirstTrigger;            // if first motion detected in this many hours send an email
 uint16_t noMovementTriggerTime;         // if no movement detected for this many hours trigger a warning 
 float lowTempWarningLevel = 10.0;       // Temperature  below which triggers a warning (C)
 float highTempWarningLevel = 30.0;      // Temperature  above which triggers a warning (C)
-bool overideNoSMS = 0;                  // used to send sms for smoke alarm even if sms flag is turned off
+bool overideNoSMS = 0;                  // used to send sms for smoke alarm even if sms sending is disabled
 bool justStarted = 1;                   // flag that the esp has just booted (set to 0 after 30 seconds)
 
 bool OTAEnabled = 0;                    // flag if OTA has been enabled (via supply of password)
@@ -347,7 +346,7 @@ void loop(void){
                   delay(100);
                   if (digitalRead(movementSensorPin) == 1) {     // debounce
                     lastMovementPinState = 1;                    // flag pin is now high
-                    MOTIONonTimer = millis();                    // log time motion sensor triggered          
+                    MOTIONonTimer = millis();                    // log time motion sensor triggered        
                   }  
               } 
     
@@ -378,7 +377,7 @@ void loop(void){
   
     // check if an email is flagged to be sent
       // if emails disabled or recently booted then cancel any scheduled send
-        if (!enableEmail || justStarted) {
+        if (emailWarningMode == 0 || justStarted) {
           if (emailToSend) {
             emailToSend = 0;     
             log_system_message("Email send cancelled");
@@ -388,8 +387,15 @@ void loop(void){
         if (lastEmailAttempt == 0 || (unsigned long)(millis() - lastEmailAttempt) >= (EmailAttemptTime * 1000)) {    // if long enough since last try
           // try to send the email  
             // tell email.h if it should also send an sms 
-              if (enableSMS || overideNoSMS) sendSMSflag = 1;         
-              else sendSMSflag = 0;
+              sendSMSflag = 0;    // default to no
+              if (overideNoSMS) sendSMSflag = 1;    
+              if (emailWarningMode == 3) sendSMSflag = 1;     // SMS enabled
+              if (emailWarningMode == 2) {                    // SMS if its night-time only
+                  time_t t=now();         // get time from NTP
+                  if (IsBST()) t+=3600;   // add one hour if it is British Summer Time
+                  int cHour = hour(t);    // get current hour
+                  if (cHour > 20 || cHour < 7) sendSMSflag = 1;   
+              }          
             if (sendEmail(_recepient, _subject, _message)) {
               // email sent ok
                 emailToSend = 0;                                  // clear flag that there is an email waiting to be sent
@@ -444,7 +450,7 @@ void handleRoot() {
 
 //  // set document title
 //      client.print("\n<script>\n");
-//      if (enableEmail) client.printf("  document.title = \"%s\";\n", stitle); 
+//      if (emailWarningMode > 0) client.printf("  document.title = \"%s\";\n", stitle); 
 //      else client.printf("  document.title = \"%s\";\n", "Warning!"); 
 //      client.print("</script>\n");
 
@@ -459,11 +465,10 @@ void handleRoot() {
 
     // if default settings requested
       if (server.hasArg("defaults")) { 
-        enableEmail = 0;
+        emailWarningMode = 0;
         noMovementTriggerTime = 12;
         motionFirstTrigger = 60;
         radarTriggerTriplevel = 10;
-        enableSMS = 0;
         highTempWarningLevel = 30.0;
         lowTempWarningLevel = 10.0;
         storeEEPROM();      // store changed setting in eeprom    `
@@ -537,13 +542,9 @@ void handleRoot() {
 
     // if email sending enable toggle requested
       if (server.hasArg("email")) {
-        if (enableEmail) {
-          log_system_message("Email sending disabled via web page (" + clientIP + ")"); 
-          enableEmail = 0;
-        } else {
-          log_system_message("Email sending enabled via web page (" + clientIP + ")"); 
-          enableEmail = 1;
-        }
+        emailWarningMode++;
+        if (emailWarningMode > 3) emailWarningMode = 0;
+        log_system_message("Email sending mode changed to " + String(emailWarningMode) + " (" + clientIP + ")"); 
         storeEEPROM();      // store changed setting in eeprom    
       }
       
@@ -556,19 +557,8 @@ void handleRoot() {
           log_system_message("showAllRadarTriggers set to on via web page (" + clientIP + ")"); 
           showAllRadarTriggers = 1;
         }  
-      }      
-
-    // if sms sending enable toggle requested
-      if (server.hasArg("sms")) {
-        if (enableSMS) {
-          log_system_message("SMS sending disabled via web page (" + clientIP + ")"); 
-          enableSMS = 0;
-        } else {
-          log_system_message("SMS sending enabled via web page (" + clientIP + ")"); 
-          enableSMS = 1;
-        }
         storeEEPROM();      // store changed setting in eeprom    
-      }      
+      }          
 
     // if test log data requested
       if (server.hasArg("testdata")) {
@@ -623,13 +613,22 @@ void handleRoot() {
         client.printf("window.setInterval(function() {document.getElementById('dataframe').src='/data';}, %s );\n", datarefresh);
         client.println("</script>"); 
      
-    // misc info
+    // Temperature
       if (tempSensing) client.println("<br>Temperature warning trigger settings: Low=" + String(lowTempWarningLevel, 0) + "C, High=" + String(highTempWarningLevel, 0) + "C");
+
+    // radar      
       if (radarDetection) {
         client.println("<br>Movement detected when radar is triggered for more than " + String(radarTriggerTriplevel) + " seconds");
-        client.println("<br>Notification sent at first movement detected in over " + String(motionFirstTrigger) + " mins");
+        if (emailWarningMode > 0) client.println("<br>Notification sent at first movement detected in over " + String(motionFirstTrigger) + " mins");
         if (noMovementTriggerTime > 0) client.println("<br>Warning sent if no movement detected for " + String(noMovementTriggerTime) + " hours");
       }
+
+    // email / SMS
+      client.print("<br>");
+      if (emailWarningMode == 0) client.printf("%sE-mail and SMS sending disabled%s", colRed, colEnd);
+      else if (emailWarningMode == 1) client.println("E-mail sending enabled");
+      else if (emailWarningMode == 2) client.println("E-mail sending enabled, SMS sending only at night");
+      else if (emailWarningMode == 3) client.println("E-mail and SMS sending enabled");      
 
     // graphs using Javascript
 
@@ -644,10 +643,10 @@ void handleRoot() {
             var ctx = canvas.getContext("2d");
             ctx.fillStyle = "#000000";
             ctx.font = "12px Arial";
-            ctx.fillText("Temperatures", 200, 16);
-            ctx.fillText("Movement detections per hour", 160, 116);
-            ctx.font = "7px Arial";
-       )=====");
+      )=====");
+      if (tempSensing) client.println("ctx.fillText(\"Temperatures\", 200, 16);");
+      if (radarDetection) client.println("ctx.fillText(\"Movement detections per hour\", 160, 116);");
+      client.print("ctx.font = \"7px Arial\";");
   
       // draw temperature log graph
       
@@ -675,7 +674,7 @@ void handleRoot() {
                   client.print(temperatures[tcnt],1);
                   client.println("\", " + String(i) + " * (gwidth / gitems) + 1, gheight - 2);");    
               }
-            // movements
+            // movement detections
               if (radarDetection) {     // if radar module installed
                 gdat = map(movements[tcnt],0,highestMovements+1,0,80);
                 client.println("ctx.fillStyle = \"#00FF00\";");    // bar colour
@@ -726,14 +725,16 @@ void handleData(){
 
   // smoke alarm
     if (smokeDetection) {
-      if (!smokeAlarmTriggered) client.print("<br>No smoke has been detected");
-      else client.printf("<br>%sSmoke has been detected%s", colRed, colEnd);
+      client.print("<br>");
+      if (!smokeAlarmTriggered) client.print("No smoke has been detected");
+      else client.printf("%sSmoke has been detected%s", colRed, colEnd);
       if (digitalRead(smokeAlarmPin)) client.printf(" - %sSmoke detector is currently triggered%s", colRed, colEnd);
     }
     
   // movement detector
     if (radarDetection) {
-      client.print("<br>Last movement detected: " + lastMovementDetection);
+      client.print("<br>");
+      client.print("Last movement detected: " + lastMovementDetection);
       if (digitalRead(movementSensorPin)) {
         client.printf(" - %sMovement sensor triggered%s", colRed, colEnd);
       }
@@ -742,30 +743,25 @@ void handleData(){
       }
     }
 
+
+  // Most recent log entry
+    client.print("<br>");
+    client.println("Log: " + system_message[system_message_pointer]);    
+
   if (tempSensing) {
     // Temperature
-      client.print("<br><br>Current temperature: " + printVal(readTemp(0), 0));
+      client.print("<br><br>");
+      client.print("Current temperature: " + printVal(readTemp(0), 0));
       if (tempWarningTriggered) client.printf(" - %sA temperature warning triggered%s", colRed, colEnd);
-      client.print("<br>&ensp;Lowest recorded temperature: " + printVal(lowestTemp, 0) + ", Highest: " + printVal(highestTemp, 0));
+      client.print("<br>");
+      client.print("&ensp;Lowest recorded temperature: " + printVal(lowestTemp, 0) + ", Highest: " + printVal(highestTemp, 0));
   
     // Humidity    
-      client.print("<br><br>Current humidity: " + printVal(readTemp(1), 1));
-      client.print("<br>&ensp;Lowest recorded humidity: " + printVal(lowestHumidity, 1) + ", Highest: " + printVal(highestHumidity, 1));
-  }
-
-  // email / SMS
     client.print("<br><br>");
-    if (!enableEmail) {
-      client.printf("%sE-mail and SMS sending disabled%s", colRed, colEnd);
-    } else {
-      if (enableSMS) client.print("Warnings will trigger both an E-mail and an SMS");
-      else {
-        client.print("Warnings will trigger an E-mail (only smoke or night-time motion will trigger an SMS)");
-      }
-    }
-    
-  // Most recent log entry
-    client.println("<br>Log: " + system_message[system_message_pointer]);
+      client.print("Current humidity: " + printVal(readTemp(1), 1));
+      client.print("<br>");
+      client.print("&ensp;Lowest recorded humidity: " + printVal(lowestHumidity, 1) + ", Highest: " + printVal(highestHumidity, 1));
+  }
       
   // Misc. status line   (Note: '&ensp;' =  add a space)
     client.print("<br><br>");
@@ -776,13 +772,13 @@ void handleData(){
 
        
   // close html page
-    client.write("<br></body></html>\n");
+    client.println("<br></body></html>");
     delay(10);      
     client.stop();
 }
 
 
-// convert a temperature/humidity float value to a String
+// convert a temperature or humidity float value to a String
 String printVal(float fval, bool rtype) {
   String sval = String(fval,1);
   if (rtype == 0) sval += "C";
@@ -860,12 +856,7 @@ void radarTriggered(uint16_t totalOnTime) {
       strcat(_subject,": Movement detected");
       strcat(_message,"First movement detected in a long time)");
       emailToSend=1; lastEmailAttempt=0; emailAttemptCounter=0;       // set flags that there is an email ready to be sent
-      // if its night time also send an sms
-        time_t t=now();         // get current time from NTP
-        if (IsBST()) t+=3600;   // add one hour if it is British Summer Time
-        int cHour = hour(t);    // get current hour
-        if (cHour > 20 || cHour < 8) overideNoSMS=1;
-        else overideNoSMS=0;
+      overideNoSMS=0;
     }
  
   noMovementWarningTriggered = 0;                                     // clear no recent movement warning flag if it is set
@@ -994,13 +985,13 @@ float readTemp(bool which) {
 
 bool storeEEPROM() {
   
-  EEPROM.put(0, enableEmail);                       // 1 byte
+  EEPROM.put(0, emailWarningMode);                  // 1 byte
   EEPROM.put(2, noMovementTriggerTime);             // 2 bytes
   EEPROM.put(4, motionFirstTrigger);                // 2 bytes
   EEPROM.put(8, radarTriggerTriplevel);             // 2 bytes
-  EEPROM.put(10, enableSMS);                        // 1 byte
   EEPROM.put(11, highTempWarningLevel);             // 4 bytes
   EEPROM.put(15, lowTempWarningLevel);              // 4 bytes
+  EEPROM.put(21, showAllRadarTriggers);             // 1 bytes  
 
   // write to eeprom
     bool ok = EEPROM.commit();
@@ -1017,13 +1008,13 @@ bool storeEEPROM() {
 
 void readEEPROM() {
 
-  EEPROM.get(0, enableEmail);                       // 1 byte
+  EEPROM.get(0, emailWarningMode);                  // 1 byte
   EEPROM.get(2, noMovementTriggerTime);             // 2 bytes
   EEPROM.get(4, motionFirstTrigger);                // 2 bytes
   EEPROM.get(8, radarTriggerTriplevel);             // 2 bytes
-  EEPROM.get(10, enableSMS);                        // 1 byte
   EEPROM.get(11, highTempWarningLevel);             // 4 bytes
   EEPROM.get(15, lowTempWarningLevel);              // 4 bytes  
+  EEPROM.get(21, showAllRadarTriggers);             // 1 bytes  
 
   // check values are reasonable
     if (noMovementTriggerTime < 0 || noMovementTriggerTime > 168) noMovementTriggerTime = 12;
@@ -1031,6 +1022,7 @@ void readEEPROM() {
     if (radarTriggerTriplevel <= 0 || radarTriggerTriplevel > 600) radarTriggerTriplevel = 10;
     if (highTempWarningLevel < 20.0 || highTempWarningLevel > 40.0) highTempWarningLevel = 30.0;
     if (lowTempWarningLevel < 0.0 || lowTempWarningLevel > 20.0) lowTempWarningLevel = 10;
+    if (emailWarningMode < 0 || emailWarningMode > 3) emailWarningMode = 0;
 }
 
 
@@ -1056,6 +1048,9 @@ void handleTest(){
   // ---------------------------- test section here ------------------------------
 
 
+    
+    client.println("<br>Sending an email<br>");
+
 
     // send an email
       _recepient[0]=0; _message[0]=0; _subject[0]=0;                  // clear any existing text
@@ -1064,9 +1059,7 @@ void handleTest(){
       strcat(_subject,": test");
       strcat(_message,"testing email");
       emailToSend=1; lastEmailAttempt=0; emailAttemptCounter=0;       // set flags that there is an email ready to be sent
-      overideNoSMS=0;     // do not send an sms
-
-
+      overideNoSMS=0;     // do not force sending of an sms
 
   
   // -----------------------------------------------------------------------------
