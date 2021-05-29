@@ -20,7 +20,6 @@ You will need to enter your email settings in to email.h (if using gmail you nee
 
 <br>You can change settings via the below browser links
 <br>  Enable/disable emails toggle with        http://x.x.x.x/?email
-<br>  Enable/disable sms toggle with           http://x.x.x.x/?sms
 <br>  Change 'first movement in' setting with  http://x.x.x.x/?first=x
 <br>  Change 'no movement in' setting with     http://x.x.x.x/?none=x
 <br>  Change radar trigger level               http://x.x.x.x/?trigger=x
