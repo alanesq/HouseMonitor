@@ -5,9 +5,9 @@
   <td><img src="/screengrab-log.png"></td>
 </tr></table>   
 
-This is a sketch I created to keep an eye on a vulnerable family member who lives alone although it may also be useful just for keeping an eye on an empty property etc..  
-It has a temperature/humidity sensor, radar motion sensor and smoke alarm built in.  It monitors these and sends me an email or text message if anything out of the ordinary occurs.
-<br>e.g. if no one has been detected moving around for several hours or if the temperature goes above or below set values etc.
+This is a sketch I created to keep an eye on a vulnerable family member who lives alone although it is also useful just for keeping an eye on an empty property / outbuilding etc..  
+It can monitor temperature/humidity, have a built in smoke detector and uses a cheap radar motion sensor to detect if someone is in the area.  It monitors these and sends me an email or text message if anything out of the ordinary occurs.
+You can just use the radar motion detection in which case you just need an esp8266 and radar module costing around £4 total and wiring it could not be easier (just requiring power to each board and a single wire between them).  And of course you can modify the code to your own personal requirements.
 <br>I am posting it here in case it is of any interest/help to anyone else.
 
 It uses an esp8266 development board, DHT22 temperature/humidity sensor, RCWL-0516 Radar movement sensor and a standard smoke detector.
