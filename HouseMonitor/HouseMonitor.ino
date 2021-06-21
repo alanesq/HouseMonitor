@@ -4,7 +4,7 @@
  * 
  *                                     https://github.com/alanesq/HouseMonitor
  *                              
- *                           Included files: email.h, Mstandard.h, ota.h, gsm.h & wifi.h 
+ *                           Included files: email.h, Mstandard.h, ota.h, wifi.h and any settings.h files
  *             
  *                           Access via: http://x.x.x.x:6969/pine
  *                           Uses a smoke detector on pin D5 (High = triggering)
@@ -53,7 +53,7 @@
 
 const char* sversion = "21Jun21";        // version of this sketch
 
-const bool serialDebug = 0;              // provide debug info on serial port
+const bool serialDebug = 1;              // provide debug info on serial port
 const int serialSpeed = 115200;          // Serial data speed to use (74880 will show ESP8266 boot diagnostics?)
 
 
