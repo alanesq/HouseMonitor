@@ -29,7 +29,7 @@
  *             You can then add them in TOOLS/BOARD/BOARDS MANAGER (search for esp8266 or ESP32)
  *          
  *      First time the ESP starts it will create an access point "ESPPortal" which you need to connect to in order to enter your wifi details.  
- *             default password = "password"   (change this in wifi.h)
+ *             default password = "12345678"   (change this in wifi.h)
  *             see: https://randomnerdtutorials.com/wifimanager-with-esp8266-autoconnect-custom-parameter-and-manage-your-ssid-and-password
  *             
  *                                                                                      Created by: www.alanesq.eu5.net
@@ -47,61 +47,19 @@
 
 
 // ---------------------------------------------------------------
-//                           -SETTINGS 
+//                             SETTINGS
 // ---------------------------------------------------------------
-//    best gpio pins to use:  D1, D2, D5, D6, D7.
 
 
-  const char* stitle = "HouseMonitor";                   // title of this sketch
+const char* sversion = "21Jun21";        // version of this sketch
 
-  const char* sversion = "28May21";                      // version of this sketch
+const bool serialDebug = 0;              // provide debug info on serial port
+const int serialSpeed = 115200;          // Serial data speed to use (74880 will show ESP8266 boot diagnostics?)
 
-  const bool serialDebug = 0;                            // provide debug info on serial port
 
-  const int EmailAttemptTime = 60;                       // how often to re-attempt failed email sends (seconds)
-  const int MaxEmailAttempts = 6;                        // maximum email send attempts   
+#include "settings.h"         // Import sketch settings 
   
-  const uint16_t tempCheckTime = 120;                    // How often to check temperature / humidity is ok (seconds)
-
-  const uint16_t smokeCheckTime = 500;                   // How often to check if smoke detector is triggering (milliseconds)
-
-  const uint16_t movementCheckTime = 200;                // How often to check if radar detector has triggered (milliseconds)
-
-  const bool tempSensing = 1;                            // flag if a temperature sensor is installed
-  const int tempSensorPin = D2;                          // dht22 temperature sensor io pin
-
-  const bool smokeDetection = 1;                         // If a smoke detector is attached or not
-  const int smokeAlarmPin = D5;                          // pin goes high when smoke alarm is triggering
-
-  const bool radarDetection = 1;                         // If there is a radar sensor attached
-  const int movementSensorPin = D1;                      // radar movement sensor gpio pin
-
-  #define ENABLE_EMAIL 1                                 // Enable E-mail  
   
-  #define ENABLE_OTA 1                                   // Enable Over The Air updates (OTA)
-  const String OTAPassword = "password";                 // Password to enable OTA service (supplied as - http://<ip address>?pwd=xxxx )
-
-  const char HomeLink[] = "/";                           // Where home button on web pages links to (usually "/")
-
-  const char datarefresh[] = "4000";                     // Refresh rate of the updating data on web page (1000 = 1 second)
-  const char JavaRefreshTime[] = "500";                  // time delay when loading url in web pages (Javascript)
-  
-  const byte LogNumber = 100;                            // number of entries to store in the system log
-
-  const int ServerPort = 80;                           // HTTP port to use
-
-  const int lastWebAccessDelay = 4500;                   // Pause radar sensing for this long when wifi is accessed to stop false triggers (ms)
-
-  const byte led = D0;                                   // indicator LED pin - D0/D4 on esp8266 nodemcu, 3 on esp8266-01, 2 on ESP32
-
-  const bool ledBlinkEnabled = 0;                        // If blinking status light is enabled
-  const uint16_t ledBlinkRate = 1500;                    // Speed to blink the status LED and carry out some system tasks (milliseconds) 
-
-  const boolean ledON = LOW;                             // Status LED control 
-  const boolean ledOFF = HIGH;
-
-  const int serialSpeed = 115200;                        // Serial data speed to use (74880 will show ESP8266 boot diagnostics)
- 
 
 // ---------------------------------------------------------------
 
@@ -109,6 +67,7 @@
 #define ENABLE_OLED 0                                  // Enable OLED display  (not used)
 
 #define ENABLE_GSM 0                                   // Enable GSM board support  (not used)
+
   
 // flags / variables specific to HouseMonitor sketch
 bool showAllRadarTriggers = 0;          // if set then all radar triggers will show in the logs (even below movement trigger level)
@@ -146,10 +105,11 @@ uint32_t TEMPtimer = millis();          // used for timing temperature checks
 uint32_t SMOKEtimer = millis();         // used for timing smoke detector checks
 uint32_t MOTIONtimer = millis();        // used for timing movement sensor checks 
 uint32_t MOTIONdetected = 0;            // last time movement was detected 
-uint32_t MOTIONdetectedEvent = millis(); // last time movement was detected and warning triggered
+uint32_t MOTIONdetectedEvent = millis();// last motion detected event (0 = no delay at boot)
 uint32_t MOTIONonTimer = 0;             // time motion detector was triggered for
 uint32_t movementDetectionTimer = millis();  // timer for radar movement detection rolling total
 uint32_t lastWebAccess = millis();      // log time of last web access (used to supress false radar triggers)
+uint32_t sounderTriggerTime = 0;        // log time the sounder was turned on
 
 #include "wifi.h"                       // Load the Wifi / NTP stuff
 
@@ -160,7 +120,7 @@ uint32_t lastWebAccess = millis();      // log time of last web access (used to 
 #endif
 
 #if ENABLE_GSM
-  #include "gsm.h"                      // GSM board
+  #include "gsm.h"                      // GSM board 
 #endif
 
 #if ENABLE_OLED
@@ -168,7 +128,7 @@ uint32_t lastWebAccess = millis();      // log time of last web access (used to 
 #endif
 
 #if ENABLE_EMAIL
-    #define _SenderName "DadsHouseMonitor"         // name of email sender (no spaces)
+    // #define _SenderName "DadsHouseMonitor"         // name of email sender (no spaces)
     #include "email.h"
     bool emailToSend = 0;                   // set to 1 when there is an email waiting to be sent
     char _recepient[60];                    // email address to send to
@@ -224,13 +184,19 @@ void setup() {
   // configure smoke alarm gpio
     pinMode(smokeAlarmPin, INPUT);
 
+  // configure the sounder gpio pin
+    if (sounderAttached) {
+      pinMode(sounderPin, OUTPUT);
+      digitalWrite(sounderPin , LOW);    
+    }
+
   // configure the radar movement detector gpio
     pinMode(movementSensorPin, INPUT);
 
   // configure the onboard input button (nodemcu onboard, low when pressed)
     // pinMode(onboardButton, INPUT); 
 
-  startWifiManager();                                            // Connect to wifi (procedure is in wifi.h)
+  startWifiManager();      // Connect to wifi (procedure is in wifi.h)
   
   WiFi.mode(WIFI_STA);     // turn off access point - options are WIFI_AP, WIFI_STA, WIFI_AP_STA or WIFI_OFF
     //    // configure as wifi access point as well
@@ -301,7 +267,14 @@ void loop(void){
         }
     }   // if (tempSensing)
 
-
+    // check if sounder needs turning off
+      if (sounderAttached && digitalRead(sounderPin) == HIGH) {
+        if ( (unsigned long)(millis() - sounderTriggerTime) >= (soundFor * 1000) ) { 
+          digitalWrite(sounderPin, LOW);
+          log_system_message("Sounder turned off");
+        }
+      }
+      
   // update graph data
       if ((unsigned long)(millis() - tempLogTimer) >= (1000 * 60 * 60) ) {    // once per hour
         tempLogTimer = millis();              // reset hourly timer
@@ -341,12 +314,17 @@ void loop(void){
   
           if (lastMovementPinState == 0) {                       // if previous state of radar pin was low
     
-            // if state has changed from low to high
+            // if state has changed from low to high - i.e. radar sensor has triggered
               if (currentPinState == 1) {     
                   delay(100);
                   if (digitalRead(movementSensorPin) == 1) {     // debounce
                     lastMovementPinState = 1;                    // flag pin is now high
-                    MOTIONonTimer = millis();                    // log time motion sensor triggered        
+                    MOTIONonTimer = millis();                    // log time motion sensor triggered
+                    // make a noise if a sounder is attached
+                      if (sounderAttached) {
+                        digitalWrite(sounderPin, HIGH);          // turn sounder on
+                        sounderTriggerTime = millis();           // log time sounder was turned on  
+                      }                          
                   }  
               } 
     
@@ -374,48 +352,48 @@ void loop(void){
       }   //if (radarDetection)
      
 
-  
-    // check if an email is flagged to be sent
-      // if emails disabled or recently booted then cancel any scheduled send
-        if (emailWarningMode == 0 || justStarted) {
-          if (emailToSend) {
-            emailToSend = 0;     
-            log_system_message("Email send cancelled");
-          }   
-        }
-      if (emailToSend && emailAttemptCounter < MaxEmailAttempts) {
-        if (lastEmailAttempt == 0 || (unsigned long)(millis() - lastEmailAttempt) >= (EmailAttemptTime * 1000)) {    // if long enough since last try
-          // try to send the email  
-            // tell email.h if it should also send an sms 
-              sendSMSflag = 0;    // default to no
-              if (overideNoSMS) sendSMSflag = 1;    
-              if (emailWarningMode == 3) sendSMSflag = 1;     // SMS enabled
-              if (emailWarningMode == 2) {                    // SMS if its night-time only
-                  time_t t=now();         // get time from NTP
-                  if (IsBST()) t+=3600;   // add one hour if it is British Summer Time
-                  int cHour = hour(t);    // get current hour
-                  if (cHour > 20 || cHour < 7) sendSMSflag = 1;   
-              }          
-            if (sendEmail(_recepient, _subject, _message)) {
-              // email sent ok
-                emailToSend = 0;                                  // clear flag that there is an email waiting to be sent
-                overideNoSMS = 0;                                 // clear sms flag
-                _recepient[0]=0; _message[0]=0; _subject[0]=0;    // clear all stored email text
-                emailAttemptCounter = 0;                          // reset attempt counter
-            } else {
-              // email failed to send
-                // log_system_message("Email send attempt failed, will retry in " + String(EmailAttemptTime) + " seconds");
-                lastEmailAttempt = millis();                      // update time of last attempt
-                emailAttemptCounter ++;                           // increment attempt counter
-                if (emailAttemptCounter >= MaxEmailAttempts) {
-                  log_system_message("Error: Max email attempts exceded, email send has failed");
-                  emailToSend = 0;                                // clear flag that there is an email waiting to be sent
-                  overideNoSMS = 0;                               // clear sms flag
-                }
-            }
-        }
-      }  // if emailToSend
-
+    #if ENABLE_EMAIL
+      // check if an email is flagged to be sent
+        // if emails disabled or recently booted then cancel any scheduled send
+          if (emailWarningMode == 0 || justStarted) {
+            if (emailToSend) {
+              emailToSend = 0;     
+              log_system_message("Email send cancelled");
+            }   
+          }
+        if (emailToSend && emailAttemptCounter < MaxEmailAttempts) {
+          if (lastEmailAttempt == 0 || (unsigned long)(millis() - lastEmailAttempt) >= (EmailAttemptTime * 1000)) {    // if long enough since last try
+            // try to send the email  
+              // tell email.h if it should also send an sms 
+                sendSMSflag = 0;    // default to no
+                if (overideNoSMS) sendSMSflag = 1;    
+                if (emailWarningMode == 3) sendSMSflag = 1;     // SMS enabled
+                if (emailWarningMode == 2) {                    // SMS if its night-time only
+                    time_t t=now();         // get time from NTP
+                    if (IsBST()) t+=3600;   // add one hour if it is British Summer Time
+                    int cHour = hour(t);    // get current hour
+                    if (cHour > 20 || cHour < 7) sendSMSflag = 1;   
+                }          
+              if (sendEmail(_recepient, _subject, _message)) {
+                // email sent ok
+                  emailToSend = 0;                                  // clear flag that there is an email waiting to be sent
+                  overideNoSMS = 0;                                 // clear sms flag
+                  _recepient[0]=0; _message[0]=0; _subject[0]=0;    // clear all stored email text
+                  emailAttemptCounter = 0;                          // reset attempt counter
+              } else {
+                // email failed to send
+                  // log_system_message("Email send attempt failed, will retry in " + String(EmailAttemptTime) + " seconds");
+                  lastEmailAttempt = millis();                      // update time of last attempt
+                  emailAttemptCounter ++;                           // increment attempt counter
+                  if (emailAttemptCounter >= MaxEmailAttempts) {
+                    log_system_message("Error: Max email attempts exceded, email send has failed");
+                    emailToSend = 0;                                // clear flag that there is an email waiting to be sent
+                    overideNoSMS = 0;                               // clear sms flag
+                  }
+              }
+          }
+        }  // if emailToSend
+      #endif
       
     // clear flag that esp has recently started (used to disable triggers until all has settled down)
         if (justStarted && millis() > 30000) justStarted = 0;
@@ -540,14 +518,16 @@ void handleRoot() {
         }
       }         
 
-    // if email sending enable toggle requested
-      if (server.hasArg("email")) {
-        emailWarningMode++;
-        if (emailWarningMode > 3) emailWarningMode = 0;
-        log_system_message("Email sending mode changed to " + String(emailWarningMode) + " (" + clientIP + ")"); 
-        storeEEPROM();      // store changed setting in eeprom    
-      }
-      
+    #if ENABLE_EMAIL
+      // if email sending enable toggle requested
+        if (server.hasArg("email")) {
+          emailWarningMode++;
+          if (emailWarningMode > 3) emailWarningMode = 0;
+          log_system_message("Email sending mode changed to " + String(emailWarningMode) + " (" + clientIP + ")"); 
+          storeEEPROM();      // store changed setting in eeprom    
+        }
+    #endif 
+    
     // if showAllRadarTriggers toggle requested
       if (server.hasArg("all")) {
         if (showAllRadarTriggers) {
@@ -589,9 +569,11 @@ void handleRoot() {
             noMovementWarningTriggered = 0;    
             tempWarningTriggered = 0;
             lastMovementDetection = "n/a";
-            emailToSend = 0;
-            MOTIONdetected = millis();
-            MOTIONdetectedEvent = millis();     
+            #if ENABLE_EMAIL
+              emailToSend = 0;
+            #endif
+            MOTIONdetected = millis();      
+            MOTIONdetectedEvent = 0;   // last motion detected (zero = reset)
           // reset max/min values
             lowestTemp = readTemp(0);
             highestTemp = readTemp(0);
@@ -623,12 +605,15 @@ void handleRoot() {
         if (noMovementTriggerTime > 0) client.println("<br>Warning sent if no movement detected for " + String(noMovementTriggerTime) + " hours");
       }
 
-    // email / SMS
-      client.print("<br>");
-      if (emailWarningMode == 0) client.printf("%sE-mail and SMS sending disabled%s", colRed, colEnd);
-      else if (emailWarningMode == 1) client.println("E-mail sending enabled");
-      else if (emailWarningMode == 2) client.println("E-mail sending enabled, SMS sending only at night");
-      else if (emailWarningMode == 3) client.println("E-mail and SMS sending enabled");      
+    #if ENABLE_EMAIL
+      // email / SMS
+        client.print("<br>");
+        if (emailWarningMode == 0) client.printf("%sE-mail and SMS sending disabled%s", colRed, colEnd);
+        else if (emailWarningMode == 1) client.println("E-mail sending enabled");
+        else if (emailWarningMode == 2) client.println("E-mail sending enabled, SMS sending only at night");
+        else if (emailWarningMode == 3) client.println("E-mail and SMS sending enabled");      
+    #endif
+
 
     // graphs using Javascript
 
@@ -766,10 +751,12 @@ void handleData(){
   // Misc. status line   (Note: '&ensp;' =  add a space)
     client.print("<br><br>");
     if (OTAEnabled) client.printf("%s(OTA ENABLED)%s&ensp;", colRed, colEnd);  
-    if (emailToSend) client.printf("%s(An E-mail is being sent)%s&ensp;", colRed, colEnd);
+    #if ENABLE_EMAIL
+      if (emailToSend) client.printf("%s(An E-mail is being sent)%s&ensp;", colRed, colEnd);
+    #endif
     if (justStarted) client.printf("%s(Recently Started)%s&ensp;", colRed, colEnd);
     if (showAllRadarTriggers && radarDetection) client.print("(Log all radar triggers)&ensp;");
-
+    if (sounderAttached && digitalRead(sounderPin) == HIGH) client.printf("%s(Sounder on)%s&ensp;", colRed, colEnd);
        
   // close html page
     client.println("<br></body></html>");
@@ -819,15 +806,17 @@ void smokeAlarm() {
   if (smokeAlarmTriggered) return;         // if smoke alarm has already been triggered
   smokeAlarmTriggered = 1;                 // flag that the smoke alarm has been triggered
 
-  // send an email
-    _recepient[0]=0; _message[0]=0; _subject[0]=0;                  // clear any existing text
-    strcat(_recepient, _emailReceiver);                             // email address to send it to
-    strcat(_subject,stitle);
-    strcat(_subject,": smoke alarm");
-    strcat(_message,"The smoke alarm has triggered");
-    emailToSend=1; lastEmailAttempt=0; emailAttemptCounter=0;       // set flags that there is an email ready to be sent
-    overideNoSMS = 1;                                               // send sms even if flagged as disabled
-
+  #if ENABLE_EMAIL
+    // send an email
+      _recepient[0]=0; _message[0]=0; _subject[0]=0;                  // clear any existing text
+      strcat(_recepient, _emailReceiver);                             // email address to send it to
+      strcat(_subject,stitle);
+      strcat(_subject,": smoke alarm");
+      strcat(_message,"The smoke alarm has triggered");
+      emailToSend=1; lastEmailAttempt=0; emailAttemptCounter=0;       // set flags that there is an email ready to be sent
+      overideNoSMS = 1;                                               // send sms even if flagged as disabled
+  #endif
+  
 }   // smokeAlarm
 
 
@@ -840,25 +829,27 @@ void smokeAlarm() {
 void radarTriggered(uint16_t totalOnTime) {
 
   MOTIONdetected = millis();                 // log time of last detection
-  
+ 
   // if ((unsigned long)(millis() - MOTIONdetectedEvent) < (3 * 1000) ) return;     // too soon since last trigger event
 
   String dtime = String( (float)(totalOnTime / 1000.0), 1 ) + " seconds";     // time radar was triggered as a string
   log_system_message("MOVEMENT WAS DETECTED! (" + dtime + ")" );  
   lastMovementDetection = currentTime() + "(" + dtime + ")";                  // store last time of detection as a string    
   movementCounts++;                                                           // increment counter for hourly logs         
+
+  #if ENABLE_EMAIL
+    // if this is the first detection for several hours send an email (zero = has been reset)
+      if ( (MOTIONdetectedEvent == 0) || ((unsigned long)(millis() - MOTIONdetectedEvent) > (1000 * 60 * motionFirstTrigger)) ) {
+        _recepient[0]=0; _message[0]=0; _subject[0]=0;                  // clear any existing text
+        strcat(_recepient, _emailReceiver);                             // email address to send it to
+        strcat(_subject,stitle);
+        strcat(_subject,": Movement detected");
+        strcat(_message,"First movement detected (in a long time)");
+        emailToSend=1; lastEmailAttempt=0; emailAttemptCounter=0;       // set flags that there is an email ready to be sent
+        overideNoSMS=0;
+      }
+  #endif
   
-  // if this is the first detection for several hours send an email
-    if ( ((unsigned long)(millis() - MOTIONdetectedEvent) > (1000 * 60 * motionFirstTrigger)) ) {
-      _recepient[0]=0; _message[0]=0; _subject[0]=0;                  // clear any existing text
-      strcat(_recepient, _emailReceiver);                             // email address to send it to
-      strcat(_subject,stitle);
-      strcat(_subject,": Movement detected");
-      strcat(_message,"First movement detected in a long time)");
-      emailToSend=1; lastEmailAttempt=0; emailAttemptCounter=0;       // set flags that there is an email ready to be sent
-      overideNoSMS=0;
-    }
- 
   noMovementWarningTriggered = 0;                                     // clear no recent movement warning flag if it is set
   MOTIONdetectedEvent = millis();                                     // log time of last detection 
     
@@ -879,13 +870,15 @@ void noMovementDetected() {
   log_system_message("No recent movement detected"); 
   noMovementWarningTriggered = 1;                                     // flag warning has triggered
 
-  // send an email
-    _recepient[0]=0; _message[0]=0; _subject[0]=0;                    // clear any existing text
-    strcat(_recepient, _emailReceiver);                               // email address to send it to
-    strcat(_subject,stitle);
-    strcat(_subject,": No recent movement");
-    strcat(_message,"No recent movement has been detected");
-    emailToSend=1; lastEmailAttempt=0; emailAttemptCounter=0;       // set flags that there is an email ready to be sent  
+  #if ENABLE_EMAIL
+    // send an email
+      _recepient[0]=0; _message[0]=0; _subject[0]=0;                    // clear any existing text
+      strcat(_recepient, _emailReceiver);                               // email address to send it to
+      strcat(_subject,stitle);
+      strcat(_subject,": No recent movement");
+      strcat(_message,"No recent movement has been detected");
+      emailToSend=1; lastEmailAttempt=0; emailAttemptCounter=0;       // set flags that there is an email ready to be sent  
+  #endif
   
 }
 
@@ -911,14 +904,16 @@ void checkTemp() {
         // trigger temperature warning
           tempWarningTriggered = 1;           // flag that a warning has been triggered
           log_system_message("Temperature warning has triggered, current temp. = " + String(current) + "C"); 
-          
-          // send an email
-            _recepient[0]=0; _message[0]=0; _subject[0]=0;                  // clear any existing text
-            strcat(_recepient, _emailReceiver);                               // email address to send it to
-            strcat(_subject,stitle); 
-            strcat(_subject,": Temperature warning");
-            strcat(_message,"A temperature outside of normal paramerer warning has triggered");
-            emailToSend=1; lastEmailAttempt=0; emailAttemptCounter=0;       // set flags that there is an email ready to be sent     
+
+          #if ENABLE_EMAIL
+            // send an email
+              _recepient[0]=0; _message[0]=0; _subject[0]=0;                  // clear any existing text
+              strcat(_recepient, _emailReceiver);                               // email address to send it to
+              strcat(_subject,stitle); 
+              strcat(_subject,": Temperature warning");
+              strcat(_message,"A temperature outside of normal paramerer warning has triggered");
+              emailToSend=1; lastEmailAttempt=0; emailAttemptCounter=0;       // set flags that there is an email ready to be sent   
+          #endif  
       }
   }
   
@@ -1048,18 +1043,18 @@ void handleTest(){
   // ---------------------------- test section here ------------------------------
 
 
-    
-    client.println("<br>Sending an email<br>");
 
-
-    // send an email
+    #if ENABLE_EMAIL
+      client.println("<br>Sending an email<br>");
       _recepient[0]=0; _message[0]=0; _subject[0]=0;                  // clear any existing text
       strcat(_recepient, _emailReceiver);                             // email address to send it to
       strcat(_subject,stitle);
-      strcat(_subject,": test");
-      strcat(_message,"testing email");
+      strcat(_subject,": testing");
+      strcat(_message,"test message");
       emailToSend=1; lastEmailAttempt=0; emailAttemptCounter=0;       // set flags that there is an email ready to be sent
-      overideNoSMS=0;     // do not force sending of an sms
+      overideNoSMS = 0;                                               // send sms even if flagged as disabled
+    #endif
+
 
   
   // -----------------------------------------------------------------------------

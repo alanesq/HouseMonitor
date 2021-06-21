@@ -30,13 +30,6 @@
 
   Using char arrays: // https://www.tutorialspoint.com/arduino/arduino_strings.htm
 
- 
-  // send a test email
-      _message[0]=0; _subject[0]=0;          // clear any existing text
-      strcat(_subject,"test message");
-      strcat(_message,"this is a test email from the esp");
-      sendEmail(_emailReceiver, _subject, _message);  
-
 
  
  ************************************************************************************************** 
@@ -57,7 +50,7 @@
 
   #define _SMTP_Port 587                                    // port to use (gmail: Port for SSL: 465, Port for TLS/STARTTLS: 587)
 
-  // #define _SenderName "ShedStation1"                        // name of sender (no spaces)
+  // #define _SenderName "HouseMonitor"                     // name of sender (no spaces)
 
   #define _UserDomain "gmail.com"                           // user domain to report in email
 
