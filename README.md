@@ -32,3 +32,8 @@ You will need to enter your email settings in to email.h (if using gmail you nee
 <br>  Change low temp warning level            http://x.x.x.x/?lowtemp
 <br>  Load default settings                    http://x.x.x.x/?defaults
 
+<br><br>
+Notes:
+If you do not have wifi at the location this device will be at I have found that a good solution (in the U.K.) is to use a cheap (from eBay) Huawei E5332 Mobile Wi-Fi with a Three pay as you go sim, buying monthly data packages.
+I then use noip.com to give a virtual fixed ip address
+Note: Most other networks do not assign an unique IP address to the device so it is impossible to connect to it from the internet.
