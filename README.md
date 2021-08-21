@@ -34,6 +34,8 @@ You will need to enter your email settings in to email.h (if using gmail you nee
 
 <br><br>
 Notes:
-If you do not have wifi at the location this device will be at I have found that a good solution (in the U.K.) is to use a cheap (from eBay) Huawei E5332 Mobile Wi-Fi with a Three pay as you go sim, buying monthly data packages.
-I then use noip.com to give a virtual fixed ip address
-Note: Most other networks do not assign an unique IP address to the device so it is impossible to connect to it from the internet.
+If you do not have wifi at the location this device will be at I have recently installed a few esp projects in a remote building (in the U.K.) which is only required for a few months and I used a cheap (from eBay) Huawei E5332 Mobile Wi-Fi with a standard Three pay as you go sim, buying monthly data packages. I then use noip.com to give a virtual fixed ip address (ddns).
+Note: Most other networks do not assign a unique IP address to the device so it is impossible to connect to it from the internet. The free option on noip.com is fine, you just have to respond to an email once a month.
+There is a library for updating noip.com but I could not get this to work (I believe this has now been fixed) so I wrote the code myself to do this.
+see: GitHub - ayushsharma82/EasyDDNS: Easy to Use ESP8266 & ESP32 DDNS Update Client Library.
+
